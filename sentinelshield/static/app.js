@@ -250,12 +250,17 @@ async function setAlert(id, status) {
   refresh();
 }
 
-function renderLive() {
+async function renderLive() {
   const crumb = $("live-crumb");
   const grid = $("live-grid");
   const bind = $("live-bind");
   if (!crumb || !grid) return;
-  let html = `<button type="button" onclick="liveBack(0)">Gujarat</button>`;
+
+  if (!CAMS || !CAMS.length) {
+    await loadCams(false);
+  }
+
+  let html = `<button type="button" onclick="liveBack(0)">All Cameras / Gujarat</button>`;
   if (CITY) {
     const c = (DATA.cities || []).find((x) => x.id === CITY);
     html += ` → <button type="button" onclick="liveBack(1)">${c ? c.name : CITY}</button>`;
@@ -265,36 +270,24 @@ function renderLive() {
     html += ` → <span>${a ? a.name : AREA}</span>`;
   }
   crumb.innerHTML = html;
-  if (!CITY) {
-    grid.innerHTML = (DATA.cities || []).map((c) => `
-      <article class="cam citypick" onclick="livePickCity('${c.id}')">
-        <h3>${c.name}</h3>
-        <div class="meta">Open this city</div>
-        <b style="font-size:22px;color:var(--accent)">${fmt(c.cameras)}</b>
-      </article>`).join("");
-  } else if (!AREA) {
-    grid.innerHTML = AREAS.map((a) => {
-      const aid = a.id.includes(":") ? a.id.split(":")[1] : a.id;
-      return `<article class="cam citypick" onclick="livePickArea('${aid}')">
-        <h3>${a.name}</h3>
-        <div class="meta">Government cameras in this area</div>
-        <b style="font-size:22px;color:var(--accent)">${fmt(a.cameras)}</b>
-      </article>`;
-    }).join("");
+
+  if (CAMS && CAMS.length) {
+    grid.innerHTML = CAMS.map(liveCard).join("");
   } else {
-    grid.innerHTML = CAMS.map(liveCard).join("") || "<p class='meta'>No cameras listed in this area.</p>";
+    grid.innerHTML = "<p class='meta' style='padding:16px;background:var(--panel);border-radius:12px'>No cameras found. Connect a camera feed above.</p>";
   }
   if (bind) bind.innerHTML = CAMS.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
 }
 function liveCard(c) {
   const hasLink = !!c.live_url;
   const hasFile = !!(c.source && (c.kind === "recorded" || c.kind === "live"));
+  const urlArg = (c.live_url || c.source || '').replace(/'/g, "\\'");
   return `<article class="cam">
     <h3>${c.name} ${badge(c)}</h3>
     <div class="meta">${c.owner || ""} · ${c.spot || ""}<br/>
       ${hasLink ? "Live link saved" : (hasFile ? "Demo clip ready" : "Add a live link")}</div>
     <div class="row">
-      <button class="btn btn-g" onclick="startLive('${c.id}')">Open live</button>
+      <button class="btn btn-g" onclick="startLive('${c.id}', '${urlArg}')">Open live</button>
     </div>
   </article>`;
 }
@@ -313,23 +306,60 @@ function liveBack(n) {
   if (n === 1) { AREA = ""; CAMS = []; }
   renderLive();
 }
-async function startLive(id) {
+async function startLive(id, passedUrl) {
   const camId = id || ($("live-bind") && $("live-bind").value);
   if (!camId) { alert("First pick city then area, then a camera."); return; }
+  const cam = (CAMS || []).find((c) => c.id === camId);
+  let liveUrl = passedUrl || (cam && (cam.live_url || cam.source)) || "";
+
+  const img = $("live-img");
+  const iframe = $("live-frame");
+  const video = $("live-video");
+  const link = $("live-link");
+
+  if (img) { img.removeAttribute("src"); img.style.display = "none"; }
+  if (iframe) { iframe.removeAttribute("src"); iframe.style.display = "none"; }
+  if (video) { video.removeAttribute("src"); video.style.display = "none"; }
+  if (link) { link.style.display = "none"; }
+
+  if (liveUrl && (liveUrl.startsWith("http://") || liveUrl.startsWith("https://"))) {
+    let embedUrl = liveUrl;
+    if (liveUrl.includes("sentinelgujarat.in/stream/")) {
+      embedUrl = liveUrl.replace("/stream/", "/camera/");
+    }
+    if ($("live-now")) $("live-now").textContent = "Playing Live Stream: " + (cam ? cam.name : camId);
+    if (link) {
+      link.href = embedUrl;
+      link.style.display = "inline-block";
+    }
+    if (iframe) {
+      iframe.src = embedUrl;
+      iframe.style.display = "block";
+    }
+    if (video && liveUrl.includes("/stream/")) {
+      video.src = liveUrl;
+      video.style.display = "block";
+    }
+    return;
+  }
+
   const fd = new FormData();
   fd.append("camera_id", camId);
   fd.append("source", "auto");
   const r = await fetch("/api/live/start", { method: "POST", body: fd });
   const j = await r.json();
   if (!r.ok) { alert(j.error || "Cannot start live"); return; }
-  if ($("live-now")) $("live-now").textContent = "Playing " + camId;
-  $("live-img").src = "/api/live/stream?t=" + Date.now();
+  if ($("live-now")) $("live-now").textContent = "Playing " + (cam ? cam.name : camId);
+  if (img) {
+    img.style.display = "block";
+    img.src = "/api/live/stream?t=" + Date.now();
+  }
 }
 async function saveLiveLink() {
   const id = $("live-bind") && $("live-bind").value;
   const url = ($("live-url") && $("live-url").value.trim()) || "";
   if (!id) { alert("Open city and area first so the camera list fills."); return; }
-  if (!url) { alert("Paste rtsp:// or http:// link from your shop camera."); return; }
+  if (!url) { alert("Paste rtsp:// or http:// link from your camera."); return; }
   const fd = new FormData();
   fd.append("live_url", url);
   const r = await fetch("/api/cameras/" + id + "/connect", { method: "POST", body: fd });
@@ -341,29 +371,34 @@ async function saveLiveLink() {
   alert("Link saved. Press Open live.");
 }
 async function addShopCam() {
-  const name = ($("shop-name") && $("shop-name").value.trim()) || "My shop camera";
+  const name = ($("shop-name") && $("shop-name").value.trim()) || "Live Camera Feed";
   const url = ($("shop-url") && $("shop-url").value.trim()) || "";
-  if (!url) { alert("Paste your shop camera link (rtsp:// or http://)."); return; }
-  if (!CITY || !AREA) { alert("On Live tab: pick your city, then area, then add the shop camera."); return; }
+  if (!url) { alert("Paste your live camera link (e.g. https://live.sentinelgujarat.in/camera/26)."); return; }
+  const cId = CITY || "surat";
+  const aId = AREA || "athwa";
   const fd = new FormData();
   fd.append("name", name);
   fd.append("live_url", url);
-  fd.append("city_id", CITY);
-  fd.append("area_id", AREA);
-  fd.append("owner", "Shop / private");
-  fd.append("place", (DATA.cities || []).find((c) => c.id === CITY)?.name || "Gujarat");
+  fd.append("city_id", cId);
+  fd.append("area_id", aId);
+  fd.append("owner", "Live Sentinel Gujarat Feed");
+  fd.append("place", (DATA.cities || []).find((c) => c.id === cId)?.name || "Surat");
   const r = await fetch("/api/cameras", { method: "POST", body: fd });
   const j = await r.json();
   if (!r.ok) { alert("Could not add camera"); return; }
-  $("shop-name").value = "";
-  $("shop-url").value = "";
+  if ($("shop-name")) $("shop-name").value = "";
+  if ($("shop-url")) $("shop-url").value = "";
+  CITY = cId; AREA = aId;
   await loadCams(false);
   renderLive();
-  alert("Shop camera added. Press Open live on its card.");
+  alert("Camera added! Click 'Open live' to view.");
 }
 async function stopLive() {
   await fetch("/api/live/stop", { method: "POST" });
-  if ($("live-img")) $("live-img").removeAttribute("src");
+  if ($("live-img")) { $("live-img").removeAttribute("src"); $("live-img").style.display = "none"; }
+  if ($("live-frame")) { $("live-frame").removeAttribute("src"); $("live-frame").style.display = "none"; }
+  if ($("live-video")) { $("live-video").removeAttribute("src"); $("live-video").style.display = "none"; }
+  if ($("live-link")) { $("live-link").style.display = "none"; }
   if ($("live-now")) $("live-now").textContent = "Live stopped.";
 }
 function openWs() {

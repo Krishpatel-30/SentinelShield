@@ -146,7 +146,8 @@ def init_db():
              "Has recorded video — government owned",
              c["city"], c["area"], c["owner"], c["spot"], 1),
         )
-    if con.execute("SELECT COUNT(*) n FROM watchlist").fetchone()["n"] == 0:
+    no_seed = os.path.exists(os.path.join(ROOT, "data", ".no_seed"))
+    if not no_seed and con.execute("SELECT COUNT(*) n FROM watchlist").fetchone()["n"] == 0:
         con.execute(
             "INSERT INTO watchlist VALUES(?,?,?,?,?)",
             ("wl1", "stolen", "GJ05SS2026", "Stolen SUV — FIR demo 2026-08-12", "CRITICAL"),
@@ -159,7 +160,7 @@ def init_db():
             "INSERT INTO watchlist VALUES(?,?,?,?,?)",
             ("wl3", "suspect", "MH12DE4455", "Interstate suspect vehicle", "MEDIUM"),
         )
-    if con.execute("SELECT COUNT(*) n FROM sightings").fetchone()["n"] == 0:
+    if not no_seed and con.execute("SELECT COUNT(*) n FROM sightings").fetchone()["n"] == 0:
         demo_path = [
             ("GJ05SS2026", "cam-gate", "Police HQ Gate", "Surat", "surat", "ringroad", 21.1959, 72.8302, "live-ai"),
             ("GJ05SS2026", "cam-ring", "Ring Road Junction", "Surat", "surat", "ringroad", 21.1702, 72.8311, "live-ai"),
@@ -177,6 +178,7 @@ def init_db():
             )
     con.commit()
     con.close()
+
 
 
 init_db()
@@ -289,6 +291,25 @@ def home():
 @app.get("/api/health")
 def health():
     return {"ok": True, "ai": dict(ai_guard), "clock": utcnow()}
+
+
+@app.post("/api/purge-static-data")
+def purge_static_data():
+    ai_guard["on"] = False
+    tables = [
+        "watchlist", "sightings", "events", "alerts", "jobs",
+        "hashes", "cyber", "evidence", "messages", "persons"
+    ]
+    con = db()
+    for tbl in tables:
+        con.execute(f"DELETE FROM {tbl};")
+    con.execute("DELETE FROM cameras WHERE kind='registry' OR id LIKE 'gov-%';")
+    con.commit()
+    con.close()
+    open(os.path.join(ROOT, "data", ".no_seed"), "w").close()
+    return {"ok": True, "message": "All static and demo data erased cleanly!"}
+
+
 
 
 @app.get("/api/hot-cams")

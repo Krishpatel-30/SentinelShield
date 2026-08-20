@@ -1,0 +1,24 @@
+[
+  {
+    "id": "8",
+    "number": 8,
+    "name": "Camera 8",
+    "location": "08 majewadi-gate-junagadh",
+    "duration": null,
+    "codec": "h264",
+    "container": "mp4",
+    "status": "live",
+    "delivery": "progressive",
+    "detail": "",
+    "stream_url": "/stream/8",
+    "hls_url": null,
+    "timezone": "Asia/Kolkata",
+    "drift_tolerance": 5.0,
+    "offset": 7433.189241,
+    "slot_offset": 7433.189241,
+    "slot_seconds": 43200.0,
+    "loop": true,
+    "wall_time": "2026-08-20T11:03:53.189241+05:30",
+    "server_epoch": 1787204033.189241
+  }
+]

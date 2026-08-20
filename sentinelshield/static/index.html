@@ -248,14 +248,27 @@
       </section>
 
       <section id="p-live" class="hidden">
-        <div class="banner"><b>You do not type 2 lakh links.</b> The state list comes from VMS / CSV / ONVIF in bulk. Here you only open city → area → one camera to watch.</div>
+        <div class="banner"><b>Live CCTV Feeds:</b> Select a city → area to view live feeds or connect a custom trial feed URL.</div>
         <p class="crumb" id="live-crumb"></p>
-        <div class="grid cams" id="live-grid"></div>
+        <div class="box" style="margin:12px 0">
+          <h3>Add / Connect Live CCTV Feed URL</h3>
+          <div class="row">
+            <input id="shop-name" placeholder="Camera Name (e.g. Camera 26)" style="max-width:220px" />
+            <input id="shop-url" placeholder="https://live.sentinelgujarat.in/camera/26" style="flex:1" />
+            <button class="btn btn-p" type="button" onclick="addShopCam()">Connect Feed</button>
+          </div>
+        </div>
+        <div class="grid cams" id="live-grid" style="margin:12px 0"></div>
         <div class="box livebox" style="margin-top:14px">
           <h3>Now playing</h3>
-          <p class="meta" id="live-now">No camera open yet. Use city → area, then Open live (demo clip if no government feed).</p>
-          <div class="row"><button class="btn btn-r" type="button" onclick="stopLive()">Stop live</button></div>
-          <img id="live-img" alt="Live picture" style="margin-top:10px" />
+          <p class="meta" id="live-now">No camera open yet. Pick a camera and click Open live.</p>
+          <div class="row" style="margin-bottom:10px">
+            <button class="btn btn-r" type="button" onclick="stopLive()">Stop live</button>
+            <a id="live-link" href="#" target="_blank" class="btn btn-s" style="display:none;text-decoration:none">Open stream in new tab 🔗</a>
+          </div>
+          <img id="live-img" alt="Live picture" style="margin-top:10px;display:none" />
+          <video id="live-video" controls autoplay muted playsinline style="margin-top:10px;width:100%;max-width:800px;border-radius:12px;border:1px solid var(--line);display:none;background:#000"></video>
+          <iframe id="live-frame" style="margin-top:10px;width:100%;height:520px;border-radius:12px;border:1px solid var(--line);display:none" allow="autoplay; fullscreen"></iframe>
         </div>
       </section>
 
@@ -406,9 +419,9 @@
   </aside>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/app.js?v=webcam4"></script>
+  <script src="/static/app.js?v=v7_fixed_markup"></script>
   <!-- BEGIN TEMP WEBCAM TEST — delete this script tag -->
-  <script src="/static/webcam_test.js?v=webcam4"></script>
+  <script src="/static/webcam_test.js?v=v7_fixed_markup"></script>
   <!-- END TEMP WEBCAM TEST -->
 </body>
 </html>

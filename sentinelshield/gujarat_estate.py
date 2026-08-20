@@ -96,6 +96,9 @@ DEMO_CAMS = [
     {"id": "cam-lobby", "city": "surat", "area": "ringroad", "name": "Collector office lobby",
      "lat": 21.1860, "lng": 72.8081, "demo": "lobby_blackout.mp4", "hint": "GJ18XY1100",
      "owner": "Home Dept. Safe City", "spot": "Public lobby"},
+    {"id": "cam-26", "city": "surat", "area": "athwa", "name": "Camera 26 — 34 Dhanori",
+     "lat": 21.1450, "lng": 72.7750, "demo": "cam26_dhanori.mp4", "hint": "GJ05SS2026",
+     "owner": "Sentinel Gujarat / Live Cam 26", "spot": "34 Dhanori CCTV"},
 ]
 
 
