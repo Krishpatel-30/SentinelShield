@@ -1,0 +1,8 @@
+data/
+__pycache__/
+.venv/
+venv/
+*.pyc
+.DS_Store
+media/uploads/
+.arena/

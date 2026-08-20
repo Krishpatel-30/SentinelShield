@@ -1,0 +1,12 @@
+To remove the temporary webcam tester later:
+
+1. Delete file:  static/webcam_test.js
+2. Delete file:  REMOVE_WEBCAM_TEST.txt  (this file)
+3. In static/index.html delete every block between
+      BEGIN TEMP WEBCAM TEST
+   and
+      END TEMP WEBCAM TEST
+4. In static/app.js search TEMP_WEBCAM and delete that if-block.
+   Also remove "webcam" from the tab() list array.
+
+Nothing else in the police desk depends on it.

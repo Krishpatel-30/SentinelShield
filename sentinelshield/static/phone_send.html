@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Send phone camera</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0b1220; color: #e8eef8; margin: 0; padding: 20px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { color: #93a0b8; line-height: 1.5; }
+    button { font: inherit; font-weight: 700; border: 0; border-radius: 14px; padding: 16px; width: 100%; margin: 8px 0; font-size: 17px; }
+    .go { background: #10b981; color: #04221a; }
+    .stop { background: #e11d48; color: #fff; }
+    video { width: 100%; border-radius: 12px; background: #000; margin-top: 12px; max-height: 50vh; }
+    #st { font-weight: 700; color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <h1>Send this phone to the desk</h1>
+  <p>Keep this tab open. Allow camera when asked.</p>
+  <button class="go" id="go">Start sending</button>
+  <button class="stop" id="stop">Stop</button>
+  <p id="st">Not sending yet</p>
+  <video id="v" autoplay playsinline muted webkit-playsinline></video>
+  <canvas id="c" style="display:none"></canvas>
+  <script>
+    let stream = null, timer = null, ok = 0, fail = 0;
+    const st = (m) => { document.getElementById("st").textContent = m; };
+    async function start() {
+      stop();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        st("HTTPS required: Mobile browsers disable camera access on plain http:// IPs.");
+        alert("Mobile browsers block camera access on http://. Please open https://172.29.156.12:8080/phone-send in your phone browser and tap 'Advanced -> Proceed' to accept the self-signed certificate.");
+        return;
+      }
+      const tryGet = (c) => navigator.mediaDevices.getUserMedia(c);
+      try {
+        stream = await tryGet({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      } catch (e1) {
+        try { stream = await tryGet({ video: true, audio: false }); }
+        catch (e2) {
+          st("Camera blocked: " + e2.message);
+          alert("Allow camera for this site. Use Chrome. Link must start with https://");
+          return;
+        }
+      }
+      const v = document.getElementById("v");
+      v.srcObject = stream;
+      v.setAttribute("playsinline", "true");
+      await v.play();
+      const c = document.getElementById("c");
+      const ctx = c.getContext("2d");
+      st("Sending to laptop…");
+      timer = setInterval(async () => {
+        if (v.readyState < 2) return;
+        c.width = 320; c.height = 240;
+        ctx.drawImage(v, 0, 0, 320, 240);
+        const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.55));
+        if (!blob) return;
+        try {
+          const r = await fetch("/api/temp/webcam-relay", {
+            method: "POST",
+            body: blob,
+            headers: { "Content-Type": "image/jpeg" },
+          });
+          if (r.ok) { ok++; st("Sending OK (" + ok + "). Look at laptop TEST Webcam."); }
+          else { fail++; st("Server said " + r.status + " — keep this page open."); }
+        } catch (err) {
+          fail++;
+          st("Network error: " + err.message);
+        }
+      }, 400);
+    }
+    function stop() {
+      if (timer) clearInterval(timer);
+      timer = null;
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+    }
+    document.getElementById("go").onclick = start;
+    document.getElementById("stop").onclick = function () { stop(); st("Stopped."); };
+  </script>
+</body>
+</html>

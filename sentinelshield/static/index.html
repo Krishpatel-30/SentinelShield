@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SentinelShield Desk</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #0b1220; --panel: #121b2e; --line: #243049; --text: #e8eef8;
+      --muted: #93a0b8; --good: #34d399; --bad: #fb7185; --warn: #fbbf24;
+      --accent: #38bdf8; --chip: #1e293b;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; height: 100%; background: var(--bg); color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif; }
+    button, input, select, textarea { font: inherit; }
+    .hidden { display: none !important; }
+    #login {
+      min-height: 100%; display: grid; place-items: center; padding: 24px;
+      background: radial-gradient(800px 400px at 20% 0%, #164e63 0%, transparent 50%), var(--bg);
+    }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 28px; width: min(420px, 100%); }
+    .card h1 { margin: 0 0 6px; font-size: 26px; }
+    .card p { color: var(--muted); margin: 0 0 18px; line-height: 1.45; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+      background: #0b1220; color: var(--text);
+    }
+    .btn { border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
+    .btn-p { background: #0ea5e9; color: #04212c; }
+    .btn-g { background: #10b981; color: #04221a; }
+    .btn-d { background: #334155; color: #fff; }
+    .btn-r { background: #e11d48; color: #fff; }
+    .btn-s { background: transparent; color: var(--accent); border: 1px solid #164e63; }
+    .hint { font-size: 12px; color: var(--muted); background: #0b1220; padding: 10px; border-radius: 10px; }
+    header {
+      display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+      border-bottom: 1px solid var(--line); background: #0e1728; flex-wrap: wrap;
+    }
+    header h1 { font-size: 17px; margin: 0; }
+    header .who { margin-left: auto; font-size: 13px; color: var(--muted); }
+    nav { display: flex; gap: 6px; flex-wrap: wrap; }
+    nav button { background: var(--chip); color: var(--text); }
+    nav button.on { background: #0ea5e9; color: #04212c; }
+    .chat-btn { position: relative; }
+    .chat-btn .dot {
+      position: absolute; top: -4px; right: -4px; background: #e11d48; color: #fff;
+      font-size: 10px; min-width: 16px; height: 16px; border-radius: 99px;
+      display: grid; place-items: center; padding: 0 4px;
+    }
+    #app { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+    .page { padding: 14px; overflow: auto; flex: 1; min-height: 0; }
+    #p-webcam { color: var(--text); }
+    .grid { display: grid; gap: 12px; }
+    .cams { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+    .cam, .box {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+    }
+    .cam h3, .box h3 { margin: 0 0 6px; font-size: 15px; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 700; }
+    .b-good { background: #064e3b; color: var(--good); }
+    .b-bad { background: #4c0519; color: var(--bad); }
+    .b-warn { background: #451a03; color: var(--warn); }
+    .b-info { background: #0c4a6e; color: var(--accent); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+    #map { height: 380px; border-radius: 14px; border: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); }
+    .livebox img { width: 100%; max-width: 720px; border-radius: 10px; background: #000; min-height: 180px; }
+    .banner { background: #134e4a; color: #ccfbf1; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+    .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 140px; }
+    .stat b { display: block; font-size: 22px; color: var(--accent); }
+    .citypick { cursor: pointer; }
+    .citypick:hover { border-color: #38bdf8; }
+    .crumb { font-size: 13px; color: var(--muted); }
+    .crumb button { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font-weight: 600; }
+    #chatback { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; }
+    #chatdraw {
+      position: fixed; top: 0; right: 0; width: min(380px, 100%); height: 100%;
+      background: #0e1728; border-left: 1px solid var(--line); z-index: 50;
+      display: flex; flex-direction: column;
+    }
+    #chatlog { flex: 1; overflow: auto; padding: 12px; }
+    .msg { background: var(--panel); border-radius: 12px; padding: 8px 10px; margin-bottom: 8px; }
+    .msg .t { float: right; color: var(--muted); font-size: 11px; }
+    .msg p { margin: 4px 0 0; }
+    #chatform { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); }
+    #chatform input { flex: 1; }
+    code { background: #0b1220; padding: 1px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <noscript><p style="padding:16px;background:#fbbf24;color:#111">Turn JavaScript on, then refresh.</p></noscript>
+  <div id="login">
+    <div class="card">
+      <h1>SentinelShield Desk</h1>
+      <p><b>Sentinel-X Gujarat</b> — CCTV + AI + GIS + cyber + evidence in one desk. Not analytics-only.</p>
+      <label>Login</label>
+      <input id="user" value="operator" />
+      <label>Password</label>
+      <input id="pass" type="password" value="oper123" />
+      <div class="row"><button class="btn btn-p" type="button" onclick="doLogin()">Enter desk</button></div>
+      <p class="hint" style="margin-top:14px">admin / admin123 · operator / oper123 · police / police123</p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header>
+      <h1>SentinelShield</h1>
+      <nav>
+        <button class="on" data-tab="home" onclick="tab('home',this)">Cities</button>
+        <button data-tab="cams" onclick="tab('cams',this)">Cameras</button>
+        <button data-tab="threats" onclick="tab('threats',this)">Threats</button>
+        <button data-tab="alerts" onclick="tab('alerts',this)">Alerts</button>
+        <button data-tab="find" onclick="tab('find',this)">Find vehicle</button>
+        <button data-tab="watch" onclick="tab('watch',this)">Watchlist</button>
+        <button data-tab="map" onclick="tab('map',this)">Map</button>
+        <button data-tab="live" onclick="tab('live',this)">Live</button>
+        <button data-tab="tools" onclick="tab('tools',this)">Tools</button>
+        <button data-tab="help" onclick="tab('help',this)">Help</button>
+        <!-- BEGIN TEMP WEBCAM TEST — delete this button to remove from menu -->
+        <button data-tab="webcam" onclick="tab('webcam',this)" id="temp-webcam-btn" style="background:#b45309;color:#fff">TEST Webcam</button>
+        <!-- END TEMP WEBCAM TEST -->
+      </nav>
+      <input id="qplate" placeholder="GJ05SS2026" style="width:150px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#0b1220;color:#fff" />
+      <button class="btn btn-g" type="button" id="btn-find">Find</button>
+      <div class="who" id="who"></div>
+      <button class="btn btn-p chat-btn" type="button" onclick="toggleChat()">Chat <span class="dot" id="chatdot">0</span></button>
+      <button class="btn btn-d" type="button" onclick="logout()">Leave</button>
+    </header>
+
+    <div class="page">
+      <section id="p-home">
+        <div class="banner">Gujarat registry: <b id="estate-n">2,00,000+</b> cameras. Open <b>city → area</b>. Extra tools are on Map / Tools — not a phase wizard.</div>
+        <div class="row" id="stats" style="margin:12px 0"></div>
+        <p class="crumb" id="crumb"></p>
+        <div class="grid cams" id="home-grid"></div>
+      </section>
+
+      <section id="p-cams" class="hidden">
+        <div class="box">
+          <h3>Add a camera in the selected area</h3>
+          <div class="row">
+            <input id="nc-name" placeholder="Camera name" style="max-width:220px" />
+            <button class="btn btn-p" type="button" onclick="addCam()">Add camera</button>
+            <button class="btn btn-g" type="button" onclick="analyzeAll()">Check videos in this area</button>
+          </div>
+        </div>
+        <div class="grid cams" id="cam-list" style="margin-top:12px"></div>
+      </section>
+
+      <section id="p-threats" class="hidden">
+        <div class="box">
+          <h3>Threats — panic, abandoned object, weapon / rush</h3>
+          <p class="meta">Continuous AI plus one-click demos judges can see.</p>
+          <div class="row">
+            <button class="btn btn-s" type="button" id="btn-panic">Panic / fight / run</button>
+            <button class="btn btn-s" type="button" id="btn-bag">Abandoned bag</button>
+          </div>
+          <table><thead><tr><th>When</th><th>Threat</th><th>Camera</th><th>Trust</th><th></th></tr></thead><tbody id="threat-rows"></tbody></table>
+        </div>
+      </section>
+
+      <section id="p-cyber" class="hidden">
+        <div class="box">
+          <h3>Cyber log (also in Tools)</h3>
+          <p class="meta">Tamper (freeze / black / replace) + lab network cues (scan / brute-force). Deepfake = hash mismatch / untrusted alert.</p>
+          <p class="meta">Open <b>Tools</b> for honeypot + full cyber log.</p>
+        </div>
+      </section>
+
+      <section id="p-vault" class="hidden">
+        <div class="box">
+          <h3>Evidence (also in Tools)</h3>
+          <p class="meta">SHA-256 of the evidence pack. AES-256 is the production wrap (key not in Git).</p>
+          <div class="row">
+            <select id="ev-cam" style="max-width:260px"></select>
+            <button class="btn btn-p" type="button" id="btn-evd">Seal evidence pack</button>
+          </div>
+          <table style="margin-top:10px"><thead><tr><th>When</th><th>Camera</th><th>SHA-256</th></tr></thead><tbody id="evd-rows"></tbody></table>
+        </div>
+      </section>
+
+      <section id="p-events" class="hidden">
+        <div class="box">
+          <h3>Event search</h3>
+          <div class="row">
+            <input id="evq" placeholder="keyword: stolen, freeze, GJ05, crowd" style="max-width:280px" />
+            <button class="btn btn-g" type="button" id="btn-evq">Search events</button>
+          </div>
+          <table style="margin-top:10px"><thead><tr><th>When</th><th>Kind</th><th>Event</th><th>Place</th></tr></thead><tbody id="ev-rows"></tbody></table>
+        </div>
+      </section>
+
+      <section id="p-alerts" class="hidden">
+        <div class="box"><table><thead><tr><th>When</th><th>What</th><th>Camera</th><th>Trust</th><th>Status</th></tr></thead><tbody id="alert-rows"></tbody></table></div>
+      </section>
+
+      <section id="p-watch" class="hidden">
+        <div class="box">
+          <h3>Vehicles we look for</h3>
+          <div class="row">
+            <input id="wl-plate" placeholder="GJ05SS2026" style="max-width:180px" />
+            <select id="wl-kind" style="max-width:140px">
+              <option value="stolen">Stolen</option>
+              <option value="blacklisted">Blacklisted</option>
+              <option value="suspect">Suspect</option>
+            </select>
+            <input id="wl-note" placeholder="Short note" style="max-width:240px" />
+            <button class="btn btn-p" type="button" onclick="addWl()">Save plate</button>
+          </div>
+          <table style="margin-top:10px"><thead><tr><th>Plate</th><th>Type</th><th>Note</th><th></th></tr></thead><tbody id="wl-rows"></tbody></table>
+        </div>
+      </section>
+
+      <section id="p-find" class="hidden">
+        <div class="box">
+          <h3>Track vehicle + route reconstruction</h3>
+          <p class="meta">Last camera, full path, direction and demo speed. Try GJ05SS2026.</p>
+          <div class="row">
+            <input id="qplate2" placeholder="e.g. GJ05SS2026" style="max-width:220px" />
+            <button class="btn btn-g" type="button" id="btn-find2">Search</button>
+            <span class="meta" id="ai-status">AI: starting…</span>
+            <button class="btn btn-d" type="button" id="btn-ai">Pause / resume AI</button>
+          </div>
+          <p id="find-msg" class="banner" style="margin-top:12px">Try: <b>GJ05SS2026</b> (stolen), GJ05AB4321, GJ27HK9009</p>
+          <div id="find-last"></div>
+          <table style="margin-top:10px"><thead><tr><th>When</th><th>Camera</th><th>Place</th><th>City</th></tr></thead><tbody id="find-rows"></tbody></table>
+        </div>
+        <div id="find-map" style="height:320px;margin-top:12px;border-radius:14px;border:1px solid var(--line)"></div>
+      </section>
+
+      <section id="p-map" class="hidden">
+        <div class="banner">Same Cities interface + Digital Twin layers. Use any button — heat, cyber attacks, suspect route, drone.</div>
+        <div class="row" style="margin:10px 0">
+          <button class="btn btn-s" type="button" id="btn-heat">Predictive heat</button>
+          <button class="btn btn-s" type="button" id="btn-cybermap">Cyber threat map</button>
+          <button class="btn btn-s" type="button" id="btn-route">Route GJ05SS2026</button>
+          <button class="btn btn-s" type="button" id="btn-drone">Launch drone (sim)</button>
+        </div>
+        <div id="twin-map" style="height:400px;border-radius:14px;border:1px solid var(--line)"></div>
+        <p class="meta" id="twin-note">Red = predicted risk · Orange = cyber · Blue = cameras</p>
+        <div id="map" style="display:none"></div>
+      </section>
+
+      <section id="p-live" class="hidden">
+        <div class="banner"><b>You do not type 2 lakh links.</b> The state list comes from VMS / CSV / ONVIF in bulk. Here you only open city → area → one camera to watch.</div>
+        <p class="crumb" id="live-crumb"></p>
+        <div class="grid cams" id="live-grid"></div>
+        <div class="box livebox" style="margin-top:14px">
+          <h3>Now playing</h3>
+          <p class="meta" id="live-now">No camera open yet. Use city → area, then Open live (demo clip if no government feed).</p>
+          <div class="row"><button class="btn btn-r" type="button" onclick="stopLive()">Stop live</button></div>
+          <img id="live-img" alt="Live picture" style="margin-top:10px" />
+        </div>
+      </section>
+
+      
+      <section id="p-tools" class="hidden">
+        <div class="banner">Simple desk: AI already watched the demo cameras. Below is <b>what it found</b>. Big buttons do one job each.</div>
+        <div class="row" id="tools-stats" style="margin:12px 0"></div>
+        <div class="box">
+          <h3>What AI found (vehicles / freeze / crowd)</h3>
+          <p class="meta">You do not need to type a camera link. These come from continuous AI.</p>
+          <table><thead><tr><th>When</th><th>What</th><th>Where</th></tr></thead><tbody id="tools-ev-rows"></tbody></table>
+        </div>
+        <div class="box" style="margin-top:12px">
+          <h3>Ask in simple words</h3>
+          <div class="row">
+            <input id="askq" placeholder="Example: show stolen cars" />
+            <button class="btn btn-p" type="button" id="btn-ask">Ask</button>
+            <button class="btn btn-g" type="button" id="btn-voice">Speak</button>
+          </div>
+          <div class="row">
+            <button class="btn btn-s" type="button" data-ask="show blacklisted vehicles">Show blacklisted vehicles</button>
+            <button class="btn btn-s" type="button" data-ask="show alerts">Show alerts</button>
+            <button class="btn btn-s" type="button" data-ask="find GJ05SS2026">Find GJ05SS2026</button>
+            <button class="btn btn-s" type="button" data-ask="show cyber attacks">Show cyber attacks</button>
+          </div>
+          <div id="ask-out" class="hint" style="margin-top:10px">Press a green/blue button or type a question.</div>
+        </div>
+        <div class="box" style="margin-top:12px">
+          <h3>Honeypot — fake camera trap</h3>
+          <p class="meta">If a stranger tries to open a fake CCTV, we catch it here.</p>
+          <button class="btn btn-r" type="button" id="btn-hp">Test: pretend I am a hacker</button>
+          <table style="margin-top:10px"><thead><tr><th>When</th><th>Type</th><th>What happened</th></tr></thead><tbody id="tools-cyber-rows"></tbody></table>
+        </div>
+        <div class="box" style="margin-top:12px">
+          <h3>Save important video (evidence)</h3>
+          <p class="meta">Makes a locked file with a fingerprint (SHA-256). Ranked list = most serious first.</p>
+          <div class="row">
+            <select id="ev-cam" style="max-width:280px"></select>
+            <button class="btn btn-p" type="button" id="btn-evd">Save evidence now</button>
+          </div>
+          <table style="margin-top:10px"><thead><tr><th>When</th><th>How serious</th><th>Fingerprint</th></tr></thead><tbody id="tools-evd-rows"></tbody></table>
+        </div>
+      </section>
+
+      <!-- BEGIN TEMP WEBCAM TEST — delete this whole section -->
+      <section id="p-webcam" class="hidden">
+        <div class="banner" style="background:#7c2d12;color:#ffedd5">TEMPORARY — test with <b>IP Webcam on your phone</b>. Not a police camera. Delete later (search TEMP WEBCAM).</div>
+        <div class="box" style="margin-top:12px">
+          <h3>Different Wi‑Fi? Use this (recommended)</h3>
+          <p class="meta">Phone and laptop do <b>not</b> need the same Wi‑Fi. On the <b>phone Chrome</b> open this exact link:</p>
+          <p><code id="wc-relay-link" style="display:block;word-break:break-all;font-size:14px;padding:10px;background:#0b1220;border-radius:8px">Open TEST Webcam on this laptop — the phone link is filled automatically</code></p>
+          <div class="row">
+            <button class="btn btn-s" type="button" id="wc-copy">Copy phone link</button>
+            <button class="btn btn-g" type="button" id="wc-relay">Show phone on this laptop</button>
+            <button class="btn btn-r" type="button" id="wc-stop">Stop</button>
+          </div>
+          <p class="meta">Phone: Start sending → Allow camera. Laptop: Show phone on this laptop. Keep both pages open.</p>
+          <hr style="border:0;border-top:1px solid var(--line);margin:16px 0" />
+          <h3>1. Same Wi‑Fi only — IP Webcam app link <span id="wc-status" class="badge b-info">OFF</span></h3>
+          <p class="meta">Only if phone and laptop share Wi‑Fi. IP Webcam → Start server → paste <code>http://192.168.x.x:8080</code></p>
+          <label>IP Webcam link</label>
+          <input id="wc-url" placeholder="http://192.168.1.25:8080" />
+          <div class="row">
+            <button class="btn btn-p" type="button" id="wc-add">Add this link</button>
+          </div>
+          <p class="meta" id="wc-saved">No link saved yet.</p>
+          <h3 style="margin-top:16px">2. Open the phone camera</h3>
+          <div class="row">
+            <button class="btn btn-g" type="button" id="wc-start">Show live video</button>
+            <button class="btn btn-p" type="button" id="wc-shot">Show snapshots</button>
+            <button class="btn btn-r" type="button" id="wc-stop">Stop</button>
+          </div>
+          <p class="meta" style="margin-top:8px">If the picture is blank: lock icon → allow insecure content. Then try Show snapshots.</p>
+          <img id="wc-ipimg" alt="Phone camera" style="margin-top:12px;max-width:min(720px,100%);border-radius:12px;background:#000;min-height:180px;display:none" />
+          <video id="wc-video" autoplay playsinline muted class="hidden"></video>
+          <canvas id="wc-canvas" class="hidden"></canvas>
+          <p id="wc-readout" class="banner" style="margin-top:10px">Paste the phone address, then Show phone camera.</p>
+          <pre id="wc-log" class="hint" style="max-height:140px;overflow:auto;white-space:pre-wrap"></pre>
+          <details class="meta" style="margin-top:10px">
+            <summary>Laptop camera instead</summary>
+            <button class="btn btn-s" type="button" id="wc-laptop">Use laptop webcam</button>
+          </details>
+        </div>
+      </section>
+      <!-- END TEMP WEBCAM TEST -->
+
+      <section id="p-help" class="hidden">
+        <div class="box">
+          <h3>2 lakh cameras — do we add each link by hand?</h3>
+          <p class="meta"><b>No.</b> Manual paste is only for a demo of 1–50 cameras. The main Gujarat track loads cameras in bulk.</p>
+          <table>
+            <thead><tr><th>How cameras enter the system</th><th>Who does it</th><th>How many at once</th></tr></thead>
+            <tbody>
+              <tr><td><b>Registry CSV / Excel</b> from each department (name, city, area, GIS, VMS id)</td><td>Police IT / Safe City</td><td>Thousands per file</td></tr>
+              <tr><td><b>VMS federation</b> — connect HikCentral, CP Plus, Milestone… once; they already hold the streams</td><td>One connector per vendor</td><td>All cameras on that VMS</td></tr>
+              <tr><td><b>ONVIF discovery</b> on a district network</td><td>Automatic scan</td><td>One subnet at a time</td></tr>
+              <tr><td><b>Hackathon 50-cam test</b></td><td>Organiser gives a list / feeds</td><td>~50, not 2 lakh</td></tr>
+              <tr><td>Typing one RTSP in a box</td><td>Nobody at state scale</td><td>Wrong method</td></tr>
+            </tbody>
+          </table>
+          <p class="meta" style="margin-top:10px">Operator work is: pick city → area → watch / confirm alert. Not “add camera 1, add camera 2…”.</p>
+        </div>
+        <div class="box" style="margin-top:12px">
+          <h3>How this system connects to all cameras</h3>
+          <p class="meta">Think of 3 layers. Your software sits in the middle. Cameras stay on their old NVR.</p>
+          <ol class="meta">
+            <li><b>Already there:</b> cameras → local NVR / VMS (HikCentral, CP Plus, Milestone, iVMS…).</li>
+            <li><b>You build once per vendor:</b> an adapter. It asks that VMS: “give me the camera list + a stream when I need it.” One adapter can unlock 5,000–40,000 cameras.</li>
+            <li><b>Your registry:</b> city, area, map pin, owner department, VMS name, camera id. Loaded from Excel/CSV or the VMS API — not typed one by one.</li>
+            <li><b>When an officer opens one camera:</b> your server asks that VMS for RTSP/HLS for <i>that id only</i>. You never pull 2 lakh live videos at once.</li>
+          </ol>
+          <p class="meta"><b>Hackathon:</b> organisers give ~50 live feeds or a file list — import that list. <b>State:</b> Home Dept. gives VMS access + camera Excel. You do not visit each pole.</p>
+        </div>
+        <div class="box" style="margin-top:12px">
+          <h3>What AI does</h3>
+          <ul class="meta">
+            <li>Read number plates and match watchlists</li>
+            <li>Flag freeze / black / looped video (tamper)</li>
+            <li>Flag crowd-rush or long object (possible weapon)</li>
+            <li>Trust score — ignore alerts on fake video</li>
+          </ul>
+          <p class="meta">A person still presses Seen / Done.</p>
+        </div>
+        <div class="box" style="margin-top:12px">
+          <h3>Protect the system</h3>
+          <ul class="meta">
+            <li>Login + roles. Change default passwords for any real deploy.</li>
+            <li>Camera passwords stay inside department VMS, not in a public form.</li>
+            <li>Hash / tamper checks if someone loops old footage.</li>
+            <li>Production: HTTPS, firewall, 2FA, private CCTV VLAN.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="chatback" class="hidden" onclick="toggleChat()"></div>
+  <aside id="chatdraw" class="hidden">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center">
+      <b>Team chat</b>
+      <button class="btn btn-d" style="margin-left:auto" type="button" onclick="toggleChat()">Close</button>
+    </div>
+    <div id="chatlog"></div>
+    <form id="chatform" onsubmit="sendChat(event)">
+      <input id="chatbox" placeholder="Write to everyone" autocomplete="off" />
+      <button class="btn btn-p" type="submit">Send</button>
+    </form>
+  </aside>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/app.js?v=webcam4"></script>
+  <!-- BEGIN TEMP WEBCAM TEST — delete this script tag -->
+  <script src="/static/webcam_test.js?v=webcam4"></script>
+  <!-- END TEMP WEBCAM TEST -->
+</body>
+</html>

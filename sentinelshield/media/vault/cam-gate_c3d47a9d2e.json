@@ -1,0 +1,10 @@
+{
+  "payload": {
+    "camera": "cam-gate",
+    "name": "Police HQ Gate",
+    "place": "Surat",
+    "created": "2026-08-18 17:47:30 UTC",
+    "algo": "SHA-256 + AES-256-GCM (key in env for production)"
+  },
+  "sha256": "c3d47a9d2e6ff95457af653754a4828deff24fe521f3f57c92073bc15b819e08"
+}
