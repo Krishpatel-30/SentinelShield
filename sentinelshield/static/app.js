@@ -277,6 +277,10 @@ async function renderLive() {
     grid.innerHTML = "<p class='meta' style='padding:16px;background:var(--panel);border-radius:12px'>No cameras found. Connect a camera feed above.</p>";
   }
   if (bind) bind.innerHTML = CAMS.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+  const anprSel = $("anpr-cam-select");
+  if (anprSel && CAMS && CAMS.length) {
+    anprSel.innerHTML = CAMS.map((c) => `<option value="${c.id}" ${c.id === CURRENT_LIVE_CAM_ID ? "selected" : ""}>${c.name}</option>`).join("");
+  }
 }
 function liveCard(c) {
   const hasLink = !!c.live_url;
@@ -306,9 +310,30 @@ function liveBack(n) {
   if (n === 1) { AREA = ""; CAMS = []; }
   renderLive();
 }
+let CURRENT_LIVE_CAM_ID = "cam-26";
+
+function onAnprCamChanged(val) {
+  if (!val) return;
+  CURRENT_LIVE_CAM_ID = val;
+  const cam = (CAMS || []).find((c) => c.id === val);
+  const name = cam ? cam.name : val;
+  if ($("anpr-selected-label")) {
+    $("anpr-selected-label").innerHTML = `Active Camera Feed: <b style="color:var(--accent)">${name}</b>`;
+  }
+  if ($("btn-anpr-scan")) {
+    $("btn-anpr-scan").textContent = `Run AI Scan on Selected Feed`;
+  }
+}
+
 async function startLive(id, passedUrl) {
   const camId = id || ($("live-bind") && $("live-bind").value);
   if (!camId) { alert("First pick city then area, then a camera."); return; }
+  
+  CURRENT_LIVE_CAM_ID = camId;
+  const sel = $("anpr-cam-select");
+  if (sel) sel.value = camId;
+  onAnprCamChanged(camId);
+
   const cam = (CAMS || []).find((c) => c.id === camId);
   let liveUrl = passedUrl || (cam && (cam.live_url || cam.source)) || "";
 
@@ -400,6 +425,54 @@ async function stopLive() {
   if ($("live-video")) { $("live-video").removeAttribute("src"); $("live-video").style.display = "none"; }
   if ($("live-link")) { $("live-link").style.display = "none"; }
   if ($("live-now")) $("live-now").textContent = "Live stopped.";
+}
+async function runLiveAnprScan(overrideCamId) {
+  const status = $("anpr-status");
+  const results = $("anpr-results");
+  const sel = $("anpr-cam-select");
+  const camId = overrideCamId || (sel && sel.value) || CURRENT_LIVE_CAM_ID || "cam-26";
+
+  const cam = (CAMS || []).find((c) => c.id === camId);
+  const camName = cam ? cam.name : camId;
+
+  if (status) status.textContent = `Scanning live frame from [${camName}]...`;
+  try {
+    const r = await fetch("/api/anpr/scan-live/" + camId, { method: "POST" });
+    const j = await r.json();
+    if (!r.ok || !j.ok) {
+      if (status) status.textContent = "Scan error: " + (j.error || "Failed");
+      return;
+    }
+    if (status) status.textContent = `Scanned [${j.camera_name}]! Found ${j.vehicles.length} vehicles, read ${j.plates_enhanced.length} license plates. Photo saved at ${j.timestamp}`;
+    if (results) {
+      results.innerHTML = j.plates_enhanced.map((p, idx) => `
+        <div style="background:#0f172a;border:1px solid var(--accent);border-radius:12px;padding:14px;min-width:280px;max-width:330px;flex:0 0 auto;box-shadow:0 4px 12px rgba(0,0,0,0.5)">
+          <div style="font-size:11px;color:#38bdf8;font-weight:bold;margin-bottom:6px;background:#1e293b;padding:4px 8px;border-radius:4px">
+            📹 FEED: ${j.camera_name}
+          </div>
+          <div style="font-size:18px;letter-spacing:1.5px;font-weight:900;color:#facc15;background:#000;padding:8px 12px;border:2px solid #facc15;border-radius:8px;text-align:center;margin-bottom:8px">
+            🚘 ${p.plate_text}
+          </div>
+          <div style="font-size:12px;color:#e2e8f0;margin-bottom:6px">
+            ⏱ Photo Clicked: <b style="color:#38bdf8">${p.captured_at}</b>
+          </div>
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:8px">
+            Vehicle: <b>${p.vehicle.cls.toUpperCase()}</b> · Conf: <b>${(p.vehicle.confidence * 100).toFixed(0)}%</b>
+          </div>
+          <div style="margin:8px 0;text-align:center;background:#000;padding:6px;border-radius:6px">
+            <img src="${p.deblurred_crop_b64}" alt="Deblurred License Plate" style="max-width:100%;height:80px;border-radius:4px;border:1px solid #38bdf8;object-fit:contain" />
+          </div>
+          <div style="font-size:11px;color:#94a3b8">Deblurring Quality: <b style="color:#38bdf8">${p.sharpness_score}</b></div>
+          <div style="font-size:11px;color:#4ade80;margin-top:2px">✓ CLAHE + Unsharp Mask Applied</div>
+          <a href="${p.snapshot_url}" target="_blank" class="btn btn-p" style="display:block;text-decoration:none;text-align:center;margin-top:10px;font-weight:bold;font-size:13px;padding:8px">
+            📷 Open Full Photo with Timestamp 🔗
+          </a>
+        </div>
+      `).join("") || `<p class='meta'>No vehicle plate crops found in feed: <b>${j.camera_name}</b>.</p>`;
+    }
+  } catch(e) {
+    if (status) status.textContent = "Network error while scanning frame.";
+  }
 }
 function openWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";

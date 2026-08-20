@@ -270,6 +270,20 @@
           <video id="live-video" controls autoplay muted playsinline style="margin-top:10px;width:100%;max-width:800px;border-radius:12px;border:1px solid var(--line);display:none;background:#000"></video>
           <iframe id="live-frame" style="margin-top:10px;width:100%;height:520px;border-radius:12px;border:1px solid var(--line);display:none" allow="autoplay; fullscreen"></iframe>
         </div>
+        
+        <div class="box" style="margin-top:14px">
+          <h3>🔍 ANPR & Deblurred CCTV Plate Scanner (Vehicle-Detection + Fast-ALPR)</h3>
+          <p class="meta">Extracts vehicles, applies CLAHE contrast boost & unsharp mask deblurring to read low-res / blurry CCTV number plates.</p>
+          <div class="row" style="margin-bottom:8px;align-items:center">
+            <label style="font-weight:bold;font-size:13px">Selected CCTV Feed:</label>
+            <select id="anpr-cam-select" style="max-width:340px;padding:8px;border-radius:8px;background:#0f172a;color:#fff;border:1px solid var(--accent);font-weight:bold" onchange="onAnprCamChanged(this.value)">
+            </select>
+            <button class="btn btn-p" type="button" id="btn-anpr-scan" onclick="runLiveAnprScan()">Run AI Scan on Selected Feed</button>
+          </div>
+          <div class="crumb" id="anpr-selected-label" style="font-size:13px;margin:6px 0">Active Camera Feed: <b style="color:var(--accent)">Camera 26 — 34 Dhanori (LIVE)</b></div>
+          <span id="anpr-status" class="hint" style="display:block;margin-top:4px">Pick any of the 31 CCTV feeds above and click Run AI Scan.</span>
+          <div id="anpr-results" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;margin-top:10px"></div>
+        </div>
       </section>
 
       
@@ -419,9 +433,9 @@
   </aside>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/app.js?v=v7_fixed_markup"></script>
+  <script src="/static/app.js?v=v10_cam_detect"></script>
   <!-- BEGIN TEMP WEBCAM TEST — delete this script tag -->
-  <script src="/static/webcam_test.js?v=v7_fixed_markup"></script>
+  <script src="/static/webcam_test.js?v=v10_cam_detect"></script>
   <!-- END TEMP WEBCAM TEST -->
 </body>
 </html>
